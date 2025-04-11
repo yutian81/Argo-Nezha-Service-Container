@@ -7,7 +7,8 @@ if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
   GH_PROXY='https://ghproxy.lvedong.eu.org/'
   GRPC_PROXY_PORT=443
   GRPC_PORT=5555
-  WEB_PORT=80
+  WEB_PORT=8080
+  PRO_PORT=${PRO_PORT:-'80'}
   CADDY_HTTP_PORT=2052
   WORK_DIR=/dashboard
 
@@ -95,6 +96,19 @@ EOF
     http_port $CADDY_HTTP_PORT
 }
 
+:$PRO_PORT {
+    reverse_proxy /vls* {
+        to localhost:8002
+    }
+
+    reverse_proxy /vms* {
+        to localhost:8001
+    }
+    reverse_proxy {
+        to localhost:$WEB_PORT
+    }
+}
+
 :$GRPC_PROXY_PORT {
     reverse_proxy {
         to localhost:$GRPC_PORT
@@ -104,30 +118,34 @@ EOF
     }
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
 }
+
 EOF
   fi
-
+  
   # 下载需要的应用
   if [ -z "$DASHBOARD_VERSION" ]; then
-    DASHBOARD_LATEST='v0.20.13'
+    wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/nezhahq/nezha/releases/latest/download/dashboard-linux-$ARCH.zip
+    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_$ARCH.zip
   elif [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    [-z "$GH_USER" || -z "$GH_CLIENTID" || -z "$GH_CLIENTSECRET"] && error " There are github variables that are not set. "
     DASHBOARD_LATEST=$(sed 's/v//; s/^/v&/' <<< "$DASHBOARD_VERSION")
+    wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/naiba/nezha/releases/download/$DASHBOARD_LATEST/dashboard-linux-$ARCH.zip
+    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/v0.20.5/nezha-agent_linux_$ARCH.zip
   else
-    error "The DASHBOARD_VERSION variable should be in a format like v0.00.00, please check."
+    error "The DASHBOARD_VERSION variable is not in the correct format, please check."
   fi
-  wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/naiba/nezha/releases/download/$DASHBOARD_LATEST/dashboard-linux-$ARCH.zip
   unzip -o /tmp/dashboard.zip -d /tmp
   [ -d /tmp/dist ] && mv /tmp/dist/dashboard-linux-$ARCH /tmp/dashboard-linux-$ARCH
   chmod +x /tmp/dashboard-linux-$ARCH
   mv -f /tmp/dashboard-linux-$ARCH $WORK_DIR/app
   wget -qO $WORK_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH
-  wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/v0.20.5/nezha-agent_linux_$ARCH.zip
   unzip -o $WORK_DIR/nezha-agent.zip -d $WORK_DIR/
   rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
 
   # 根据参数生成哪吒服务端配置文件
   [ ! -d data ] && mkdir data
-  cat > ${WORK_DIR}/data/config.yaml << EOF
+  if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    cat > ${WORK_DIR}/data/config.yaml << EOF
 Debug: false
 HTTPPort: $WEB_PORT
 Language: zh-CN
@@ -146,11 +164,57 @@ site:
   Cookiename: "nezha-dashboard" #浏览器 Cookie 字段名，可不改
   Theme: "default"
 EOF
+  else
+    LOCAL_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
+    AGENT_UUID=$(openssl rand -hex 16 | sed 's/\(........\)\(....\)\(....\)\(....\)\(............\)/\1-\2-\3-\4-\5/')
+    cat > ${WORK_DIR}/data/config.yaml << EOF
+agent_secret_key: $LOCAL_TOKEN
+debug: false
+listen_port: $GRPC_PORT
+language: zh-CN
+site_name: "Nezha Probe"
+install_host: $ARGO_DOMAIN:$GRPC_PORT
+location: Asia/Shanghai
+tls: true
+oauth2:
+  GitHub:
+    client_id: "$GH_CLIENTID"
+    client_secret: "$GH_CLIENTSECRET"
+    endpoint:
+      auth_url: "https://github.com/login/oauth/authorize"
+      token_url: "https://github.com/login/oauth/access_token"
+    user_info_url: "https://api.github.com/user"
+    user_id_path: "id"
+EOF
+    cat > ${WORK_DIR}/data/agent-config.yml << EOF
+client_secret: $LOCAL_TOKEN
+debug: false
+disable_auto_update: false
+disable_command_execute: false
+disable_force_update: false
+disable_nat: false
+disable_send_query: false
+gpu: false
+insecure_tls: true
+ip_report_period: 1800
+report_delay: 3
+server: $ARGO_DOMAIN:$GRPC_PORT
+skip_connection_count: false
+skip_procs_count: false
+temperature: false
+tls: true
+use_gitee_to_upgrade: false
+use_ipv6_country_code: false
+uuid: $AGENT_UUID
+EOF
+  fi
 
-  # 下载包含本地数据的 sqlite.db 文件，生成18位随机字符串用于本地 Token
-  wget -P ${WORK_DIR}/data/ ${GH_PROXY}https://github.com/fscarmen2/Argo-Nezha-Service-Container/raw/main/sqlite.db
-  LOCAL_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 18)
-  sqlite3 ${WORK_DIR}/data/sqlite.db "update servers set secret='${LOCAL_TOKEN}' where created_at='2023-04-23 13:02:00.770756566+08:00'"
+  if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    # 下载包含本地数据的 sqlite.db 文件，生成18位随机字符串用于本地 Token
+    wget -P ${WORK_DIR}/data/ ${GH_PROXY}https://github.com/fscarmen2/Argo-Nezha-Service-Container/raw/main/sqlite.db
+    LOCAL_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 18)
+    sqlite3 ${WORK_DIR}/data/sqlite.db "update servers set secret='${LOCAL_TOKEN}' where created_at='2023-04-23 13:02:00.770756566+08:00'"
+  fi
 
   # SSH path 与 GH_CLIENTSECRET 一样
   echo root:"$GH_CLIENTSECRET" | chpasswd root
@@ -215,7 +279,7 @@ DASHBOARD_VERSION=$DASHBOARD_VERSION
 EOF
 
   # 生成 backup.sh 文件的步骤2 - 在线获取 template/bakcup.sh 模板生成完整 backup.sh 文件
-  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen2/Argo-Nezha-Service-Container/main/template/backup.sh | sed '1,/^########/d' >> $WORK_DIR/backup.sh
+  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/Kiritocyz/Argo-Nezha-Service-Container/main/template/backup.sh | sed '1,/^########/d' >> $WORK_DIR/backup.sh
 
   if [[ -n "$GH_BACKUP_USER" && -n "$GH_EMAIL" && -n "$GH_REPO" && -n "$GH_PAT" ]]; then
     # 生成 restore.sh 文件的步骤1 - 设置环境变量
@@ -237,7 +301,7 @@ IS_DOCKER=1
 EOF
 
     # 生成 restore.sh 文件的步骤2 - 在线获取 template/restore.sh 模板生成完整 restore.sh 文件
-    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen2/Argo-Nezha-Service-Container/main/template/restore.sh | sed '1,/^########/d' >> $WORK_DIR/restore.sh
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/Kiritocyz/Argo-Nezha-Service-Container/main/template/restore.sh | sed '1,/^########/d' >> $WORK_DIR/restore.sh
   fi
 
   # 生成 renew.sh 文件的步骤1 - 设置环境变量
@@ -252,7 +316,7 @@ TEMP_DIR=/tmp/renew
 EOF
 
   # 生成 renew.sh 文件的步骤2 - 在线获取 template/renew.sh 模板生成完整 renew.sh 文件
-  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen2/Argo-Nezha-Service-Container/main/template/renew.sh | sed '1,/^########/d' >> $WORK_DIR/renew.sh
+  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/Kiritocyz/Argo-Nezha-Service-Container/main/template/renew.sh | sed '1,/^########/d' >> $WORK_DIR/renew.sh
 
   # 生成定时任务: 1.每天北京时间 3:30:00 更新备份和还原文件，2.每天北京时间 4:00:00 备份一次，并重启 cron 服务； 3.每分钟自动检测在线备份文件里的内容
   [ -z "$NO_AUTO_RENEW" ] && [ -s $WORK_DIR/renew.sh ] && ! grep -q "$WORK_DIR/renew.sh" /etc/crontab && echo "30 3 * * * root bash $WORK_DIR/renew.sh" >> /etc/crontab
@@ -260,6 +324,17 @@ EOF
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
   service cron restart
 
+if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
+  # 启动xxxry
+  wget -qO- https://github.com/dsadsadsss/d/releases/download/sd/kano-6-amd-w > $WORK_DIR/webapp
+  chmod 777 $WORK_DIR/webapp
+  WEB_RUN="$WORK_DIR/webapp"
+fi
+if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+   AG_RUN="$WORK_DIR/nezha-agent -s localhost:$GRPC_PORT -p $LOCAL_TOKEN --disable-auto-update --disable-force-update"
+else
+   AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/agent-config.yml"
+fi
   # 生成 supervisor 进程守护配置文件
   cat > /etc/supervisor/conf.d/damon.conf << EOF
 [supervisord]
@@ -282,7 +357,7 @@ stderr_logfile=/dev/null
 stdout_logfile=/dev/null
 
 [program:agent]
-command=$WORK_DIR/nezha-agent -s localhost:$GRPC_PORT -p $LOCAL_TOKEN --disable-auto-update
+command=$AG_RUN
 autostart=true
 autorestart=true
 stderr_logfile=/dev/null
@@ -295,9 +370,54 @@ autorestart=true
 stderr_logfile=/dev/null
 stdout_logfile=/dev/null
 EOF
+if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
+    cat >> /etc/supervisor/conf.d/damon.conf << EOF
 
+[program:webapp]
+command=$WEB_RUN
+autostart=true
+autorestart=true
+stderr_logfile=/dev/null
+stdout_logfile=/dev/null
+EOF
+get_country_code() {
+    country_code="UN"
+    urls=("http://ipinfo.io/country" "https://ifconfig.co/country" "https://ipapi.co/country")
+
+    for url in "${urls[@]}"; do
+        if [ "$download_tool" = "curl" ]; then
+            country_code=$(curl -s "$url")
+        else
+            country_code=$(wget -qO- "$url")
+        fi
+
+        if [ -n "$country_code" ] && [ ${#country_code} -eq 2 ]; then
+            break
+        fi
+    done
+
+    echo "     国家:    $country_code"
+}
+get_country_code
+XIEYI='vl'
+XIEYI2='vm'
+CF_IP=${CF_IP:-'ip.sb'}
+SUB_NAME=${SUB_NAME:-'nezha'}
+up_url="${XIEYI}ess://${UUID}@${CF_IP}:443?path=%2F${XIEYI}s%3Fed%3D2048&security=tls&encryption=none&host=${ARGO_DOMAIN}&type=ws&sni=${ARGO_DOMAIN}#${country_code}-${SUB_NAME}"
+VM_SS="{ \"v\": \"2\", \"ps\": \"${country_code}-${SUB_NAME}\", \"add\": \"${CF_IP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/vms?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\", \"fp\": \"randomized\", \"allowlnsecure\": \"flase\"}"
+if command -v base64 >/dev/null 2>&1; then
+  vm_url="${XIEYI2}ess://$(echo -n "$VM_SS" | base64 -w 0)"
+fi
+x_url="${up_url}\n${vm_url}"
+encoded_url=$(echo -e "${x_url}\n${up_url2}" | base64 -w 0)
+echo "============  <节点信息:>  ========  "
+echo "  "
+echo "$encoded_url"
+echo "  "
+echo "=============================="
+fi
   # 赋执行权给 sh 及所有应用
-  chmod +x $WORK_DIR/{cloudflared,nezha-agent,*.sh}
+  chmod +x $WORK_DIR/{cloudflared,app,nezha-agent,*.sh}
 
 fi
 
