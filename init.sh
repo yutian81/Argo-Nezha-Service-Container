@@ -141,46 +141,26 @@ EOF
 }
 
 :$GRPC_PROXY_PORT {
-    # 域名和 TLS 证书
-    tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key {
-        protocols tls1.3 tls1.2
-    }
-
-    # 允许请求头中的下划线（默认允许，无需额外配置）
-    
-    # 全局代理设置：透传 Cloudflare 的客户端 IP
-    reverse_proxy {
-        to localhost:$GRPC_PORT
-        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-        header_up nz-realip {http.request.header.CF-Connecting-IP}
+    tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
+    reverse_proxy /proto.NezhaService/* {
+        header_up Host {host}
+        header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
         transport http {
-            # 默认 HTTP/2（启用 TLS 时）
+            versions h2c
+            read_buffer 4096
         }
+        to localhost:$GRPC_PORT
     }
-
-    # gRPC 代理（路径匹配 /proto.NezhaService/*）
-    handle_path /proto.NezhaService/* {
-        reverse_proxy localhost:$GRPC_PORT {
-            transport http {
-                versions h2c  # 明文 HTTP/2（若后端不支持 TLS，否则用 h2）
-            }
-            flush_interval -1  # 禁用缓冲，适合流式传输
-        }
-    }
-
-    # WebSocket 代理（路径匹配 /api/v1/ws/*）
-    handle /api/v1/ws/* {
-        reverse_proxy localhost:$GRPC_PORT {
-            header_up Connection {http.request.header.Connection}
-            header_up Upgrade {http.request.header.Upgrade}
-        }
-    }
-
-    # 超时和缓冲区配置
     reverse_proxy {
-        header_timeout 3600s
-        read_timeout 3600s
-        write_timeout 3600s
+        header_up Host {host}
+        header_up Origin https://{host}
+        header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+        transport http {
+            read_buffer 16384
+        }
+        to localhost:$GRPC_PORT
     }
 }
 EOF
