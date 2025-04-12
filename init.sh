@@ -91,7 +91,8 @@ EOF
     CADDY_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/caddyserver/caddy/releases/latest" | awk -F [v\"] '/"tag_name"/{print $5}' || echo '2.7.6')
     wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_LATEST}/caddy_${CADDY_LATEST}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
     GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
-    cat > $WORK_DIR/Caddyfile  << EOF
+    if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+      cat > $WORK_DIR/Caddyfile  << EOF
 {
     http_port $CADDY_HTTP_PORT
 }
@@ -110,12 +111,6 @@ EOF
 }
 
 :$GRPC_PROXY_PORT {
-    reverse_proxy /proto.NezhaService/* {
-        to localhost:$GRPC_PORT
-        transport http {
-            versions h2c 2
-        }
-    }
     reverse_proxy {
         to localhost:$GRPC_PORT
         transport http {
@@ -126,6 +121,70 @@ EOF
 }
 
 EOF
+    else
+      cat > $WORK_DIR/Caddyfile  << EOF
+{
+    http_port $CADDY_HTTP_PORT
+}
+
+:$PRO_PORT {
+    reverse_proxy /vls* {
+        to localhost:8002
+    }
+
+    reverse_proxy /vms* {
+        to localhost:8001
+    }
+    reverse_proxy {
+        to localhost:$WEB_PORT
+    }
+}
+
+{$ARGO_DOMAIN}:$GRPC_PROXY_PORT {
+    # 域名和 TLS 证书
+    tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key {
+        protocols tls1.3 tls1.2
+    }
+
+    # 允许请求头中的下划线（默认允许，无需额外配置）
+    
+    # 全局代理设置：透传 Cloudflare 的客户端 IP
+    reverse_proxy {
+        to localhost:$GRPC_PORT
+        header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+        header_up nz-realip {http.request.header.CF-Connecting-IP}
+        transport http {
+            # 默认 HTTP/2（启用 TLS 时）
+        }
+    }
+
+    # gRPC 代理（路径匹配 /proto.NezhaService/*）
+    handle_path /proto.NezhaService/* {
+        reverse_proxy localhost:$GRPC_PORT {
+            transport http {
+                versions h2c  # 明文 HTTP/2（若后端不支持 TLS，否则用 h2）
+            }
+            flush_interval -1  # 禁用缓冲，适合流式传输
+        }
+    }
+
+    # WebSocket 代理（路径匹配 /api/v1/ws/*）
+    handle /api/v1/ws/* {
+        reverse_proxy localhost:$GRPC_PORT {
+            header_up Connection {http.request.header.Connection}
+            header_up Upgrade {http.request.header.Upgrade}
+        }
+    }
+
+    # 超时和缓冲区配置
+    reverse_proxy {
+        header_timeout 3600s
+        read_timeout 3600s
+        write_timeout 3600s
+    }
+}
+EOF
+    fi
   fi
   
   # 下载需要的应用
