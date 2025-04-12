@@ -110,7 +110,7 @@ EOF
     }
 }
 
-$ARGO_DOMAIN:$GRPC_PROXY_PORT {
+:$GRPC_PROXY_PORT {
     reverse_proxy {
         to localhost:$GRPC_PORT
         transport http {
@@ -140,7 +140,7 @@ EOF
     }
 }
 
-:$GRPC_PROXY_PORT {
+$ARGO_DOMAIN:$GRPC_PROXY_PORT {
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
     reverse_proxy /proto.NezhaService/* {
         header_up Host {host}
