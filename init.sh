@@ -140,7 +140,7 @@ EOF
     }
 }
 
-{$ARGO_DOMAIN}:$GRPC_PROXY_PORT {
+:$GRPC_PROXY_PORT {
     # 域名和 TLS 证书
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key {
         protocols tls1.3 tls1.2
