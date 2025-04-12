@@ -110,6 +110,12 @@ EOF
 }
 
 :$GRPC_PROXY_PORT {
+    reverse_proxy /proto.NezhaService/* {
+        to localhost:$GRPC_PORT
+        transport http {
+            versions h2c 2
+        }
+    }
     reverse_proxy {
         to localhost:$GRPC_PORT
         transport http {
