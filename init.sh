@@ -110,7 +110,7 @@ EOF
     }
 }
 
-:$GRPC_PROXY_PORT {
+$ARGO_DOMAIN:$GRPC_PROXY_PORT {
     reverse_proxy {
         to localhost:$GRPC_PORT
         transport http {
