@@ -91,7 +91,7 @@ EOF
     CADDY_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/caddyserver/caddy/releases/latest" | awk -F [v\"] '/"tag_name"/{print $5}' || echo '2.7.6')
     wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_LATEST}/caddy_${CADDY_LATEST}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
     GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
-    if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    # if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
       cat > $WORK_DIR/Caddyfile  << EOF
 {
     http_port $CADDY_HTTP_PORT
@@ -121,46 +121,46 @@ EOF
 }
 
 EOF
-    else
-      cat > $WORK_DIR/Caddyfile  << EOF
-{
-    http_port $CADDY_HTTP_PORT
-}
+#     else
+#       cat > $WORK_DIR/Caddyfile  << EOF
+# {
+#     http_port $CADDY_HTTP_PORT
+# }
 
-:$PRO_PORT {
-    reverse_proxy /vls* {
-        to localhost:8002
-    }
+# :$PRO_PORT {
+#     reverse_proxy /vls* {
+#         to localhost:8002
+#     }
 
-    reverse_proxy /vms* {
-        to localhost:8001
-    }
-    reverse_proxy {
-        to localhost:$GRPC_PORT
-    }
-}
+#     reverse_proxy /vms* {
+#         to localhost:8001
+#     }
+#     reverse_proxy {
+#         to localhost:$GRPC_PORT
+#     }
+# }
 
-:$GRPC_PROXY_PORT {
-    tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
-    reverse_proxy /proto.NezhaService/* {
-        header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-        transport http {
-            versions h2c
-        }
-        to localhost:$GRPC_PORT
-    }
-    reverse_proxy {
-        header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-        transport http {
-            versions 3
-        }
-        to localhost:$GRPC_PORT
-    }
-}
-EOF
-    fi
+# :$GRPC_PROXY_PORT {
+#     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
+#     reverse_proxy /proto.NezhaService/* {
+#         header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+#         transport http {
+#             versions h2c
+#         }
+#         to localhost:$GRPC_PORT
+#     }
+#     reverse_proxy {
+#         header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+#         transport http {
+#             versions 3
+#         }
+#         to localhost:$GRPC_PORT
+#     }
+# }
+# EOF
+#     fi
   fi
   
   # 下载需要的应用
