@@ -112,8 +112,8 @@ EOF
 }
 
 EOF
-    if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
-      if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+      if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
         cat >> $WORK_DIR/Caddyfile << EOF
 :$PRO_PORT {
     reverse_proxy /vls* {
@@ -129,7 +129,9 @@ EOF
     }
 }
 EOF
-      else
+      fi
+    else
+      if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
         cat >> $WORK_DIR/Caddyfile << EOF
 :$PRO_PORT {
     reverse_proxy /vls* {
@@ -140,6 +142,14 @@ EOF
         to localhost:8001
     }
     
+    reverse_proxy {
+        to localhost:$GRPC_PORT
+    }
+}
+EOF
+      else
+        cat >> $WORK_DIR/Caddyfile << EOF
+:$PRO_PORT {
     reverse_proxy {
         to localhost:$GRPC_PORT
     }
