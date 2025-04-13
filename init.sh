@@ -140,7 +140,7 @@ EOF
     }
 }
 
-$ARGO_DOMAIN:$GRPC_PROXY_PORT {
+:$GRPC_PROXY_PORT {
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
     reverse_proxy /proto.NezhaService/* {
         header_up Host {host}
@@ -215,7 +215,7 @@ EOF
     cat > ${WORK_DIR}/data/config.yaml << EOF
 agent_secret_key: $LOCAL_TOKEN
 debug: false
-listen_port: $GRPC_PORT
+listen_port: $WEB_PORT
 language: zh-CN
 site_name: "Nezha Probe"
 install_host: $ARGO_DOMAIN:$GRPC_PORT
