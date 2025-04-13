@@ -142,14 +142,20 @@ EOF
 
 :$GRPC_PROXY_PORT {
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
-    reverse_proxy {
-        @grpc path /proto.NezhaService/*
-        handle @grpc {
-            transport http {
-                versions h2c
-            }
+    reverse_proxy /proto.NezhaService/* {
+        header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+        transport http {
+            versions h2c
         }
-        header_up nz-realip {http.request.header.CF-Connecting-IP}
+        to localhost:$GRPC_PORT
+    }
+    reverse_proxy {
+        header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+        transport http {
+            versions 3
+        }
         to localhost:$GRPC_PORT
     }
 }
