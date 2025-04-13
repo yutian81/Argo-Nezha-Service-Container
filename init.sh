@@ -215,12 +215,12 @@ EOF
     cat > ${WORK_DIR}/data/config.yaml << EOF
 agent_secret_key: $LOCAL_TOKEN
 debug: false
-listen_port: $WEB_PORT
+listen_port: $GRPC_PORT
 language: zh-CN
 site_name: "Nezha Probe"
 install_host: $ARGO_DOMAIN:$GRPC_PORT
 location: Asia/Shanghai
-tls: true
+tls: flase
 oauth2:
   GitHub:
     client_id: "$GH_CLIENTID"
