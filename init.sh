@@ -220,7 +220,12 @@ language: zh-CN
 site_name: "Nezha Probe"
 install_host: $ARGO_DOMAIN:$GRPC_PORT
 location: Asia/Shanghai
-tls: flase
+tls: true
+https:
+   insecure_tls: true # 如果使用正规证书，请改为 false
+   listen_port: $GRPC_PROXY_PORT
+   tls_cert_path: $WORK_DIR/nezha.pem
+   tls_key_path: $WORK_DIR/nezha.key
 oauth2:
   GitHub:
     client_id: "$GH_CLIENTID"
