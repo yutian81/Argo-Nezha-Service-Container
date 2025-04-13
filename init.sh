@@ -9,6 +9,7 @@ if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
   GRPC_PORT=8008
   WEB_PORT=8080
   PRO_PORT=${PRO_PORT:-'80'}
+  BACKUP_TIME=${BACKUP_TIME:-'0 4 * * *'}
   CADDY_HTTP_PORT=2052
   WORK_DIR=/dashboard
 
@@ -20,7 +21,11 @@ if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
   hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
 
   # 如参数不齐全，容器退出，另外处理某些环境变量填错后的处理
-  [[ -z "$GH_USER" || -z "$GH_CLIENTID" || -z "$GH_CLIENTSECRET" || -z "$ARGO_AUTH" || -z "$ARGO_DOMAIN" ]] && error " There are variables that are not set. "
+  if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    [[ -z "$GH_USER" || -z "$GH_CLIENTID" || -z "$GH_CLIENTSECRET" || -z "$ARGO_AUTH" || -z "$ARGO_DOMAIN" ]] && error " There are variables that are not set. "
+  else
+    [[ (-z "$GH_USER" && -z "$GH_BACKUP_USER") || -z "$ARGO_AUTH" || -z "$ARGO_DOMAIN" ]] && error " There are variables that are not set. "
+  fi
   [[ "$ARGO_AUTH" =~ TunnelSecret ]] && grep -qv '"' <<< "$ARGO_AUTH" && ARGO_AUTH=$(sed 's@{@{"@g;s@[,:]@"\0"@g;s@}@"}@g' <<< "$ARGO_AUTH")  # Json 时，没有了"的处理
   [[ "$ARGO_AUTH" =~ ey[A-Z0-9a-z=]{120,250}$ ]] && ARGO_AUTH=$(awk '{print $NF}' <<< "$ARGO_AUTH") # Token 复制全部，只取最后的 ey 开始的
   [ -n "$GH_REPO" ] && grep -q '/' <<< "$GH_REPO" && GH_REPO=$(awk -F '/' '{print $NF}' <<< "$GH_REPO")  # 填了项目全路径的处理
@@ -91,23 +96,9 @@ EOF
     CADDY_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/caddyserver/caddy/releases/latest" | awk -F [v\"] '/"tag_name"/{print $5}' || echo '2.7.6')
     wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_LATEST}/caddy_${CADDY_LATEST}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
     GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
-    # if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
-      cat > $WORK_DIR/Caddyfile  << EOF
+    cat > $WORK_DIR/Caddyfile  << EOF
 {
     http_port $CADDY_HTTP_PORT
-}
-
-:$PRO_PORT {
-    reverse_proxy /vls* {
-        to localhost:8002
-    }
-
-    reverse_proxy /vms* {
-        to localhost:8001
-    }
-    reverse_proxy {
-        to localhost:$WEB_PORT
-    }
 }
 
 :$GRPC_PROXY_PORT {
@@ -121,46 +112,41 @@ EOF
 }
 
 EOF
-#     else
-#       cat > $WORK_DIR/Caddyfile  << EOF
-# {
-#     http_port $CADDY_HTTP_PORT
-# }
+    if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
+      if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+        cat >> $WORK_DIR/Caddyfile << EOF
+:$PRO_PORT {
+    reverse_proxy /vls* {
+        to localhost:8002
+    }
 
-# :$PRO_PORT {
-#     reverse_proxy /vls* {
-#         to localhost:8002
-#     }
+    reverse_proxy /vms* {
+        to localhost:8001
+    }
 
-#     reverse_proxy /vms* {
-#         to localhost:8001
-#     }
-#     reverse_proxy {
-#         to localhost:$GRPC_PORT
-#     }
-# }
+    reverse_proxy {
+        to localhost:$WEB_PORT
+    }
+}
+EOF
+      else
+        cat >> $WORK_DIR/Caddyfile << EOF
+:$PRO_PORT {
+    reverse_proxy /vls* {
+        to localhost:8002
+    }
 
-# :$GRPC_PROXY_PORT {
-#     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
-#     reverse_proxy /proto.NezhaService/* {
-#         header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-#         transport http {
-#             versions h2c
-#         }
-#         to localhost:$GRPC_PORT
-#     }
-#     reverse_proxy {
-#         header_up nz-realip {http.request.header.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-#         transport http {
-#             versions 3
-#         }
-#         to localhost:$GRPC_PORT
-#     }
-# }
-# EOF
-#     fi
+    reverse_proxy /vms* {
+        to localhost:8001
+    }
+    
+    reverse_proxy {
+        to localhost:$GRPC_PORT
+    }
+}
+EOF
+      fi
+    fi
   fi
   
   # 下载需要的应用
@@ -218,6 +204,19 @@ install_host: $ARGO_DOMAIN:$GRPC_PROXY_PORT
 location: Asia/Shanghai
 tls: true
 EOF
+    if [[ -n "$GH_CLIENTID" && -n "$GH_CLIENTSECRET" ]]; then
+      cat >> ${WORK_DIR}/data/config.yaml << EOF
+oauth2:
+   GitHub:
+     client_id: "$GH_CLIENTID"
+     client_secret: "$GH_CLIENTSECRET"
+     endpoint:
+       auth_url: "https://github.com/login/oauth/authorize"
+       token_url: "https://github.com/login/oauth/access_token"
+     user_info_url: "https://api.github.com/user"
+     user_id_path: "id"
+EOF
+    fi
     cat > ${WORK_DIR}/data/config.yml << EOF
 client_secret: $LOCAL_TOKEN
 debug: false
@@ -248,10 +247,12 @@ EOF
     sqlite3 ${WORK_DIR}/data/sqlite.db "update servers set secret='${LOCAL_TOKEN}' where created_at='2023-04-23 13:02:00.770756566+08:00'"
   fi
 
-  # SSH path 与 GH_CLIENTSECRET 一样
-  echo root:"$GH_CLIENTSECRET" | chpasswd root
-  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g;s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-  service ssh restart
+  if [[ -n "$GH_CLIENTID" && -n "$GH_CLIENTSECRET" ]]; then
+    # SSH path 与 GH_CLIENTID 一样
+    echo root:"$GH_CLIENTSECRET" | chpasswd root
+    sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/g;s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+    service ssh restart
+  fi
 
   # 判断 ARGO_AUTH 为 json 还是 token
   # 如为 json 将生成 argo.json 和 argo.yml 文件
@@ -352,7 +353,7 @@ EOF
 
   # 生成定时任务: 1.每天北京时间 3:30:00 更新备份和还原文件，2.每天北京时间 4:00:00 备份一次，并重启 cron 服务； 3.每分钟自动检测在线备份文件里的内容
   [ -z "$NO_AUTO_RENEW" ] && [ -s $WORK_DIR/renew.sh ] && ! grep -q "$WORK_DIR/renew.sh" /etc/crontab && echo "30 3 * * * root bash $WORK_DIR/renew.sh" >> /etc/crontab
-  [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "0 4 * * * root bash $WORK_DIR/backup.sh a" >> /etc/crontab
+  [ -s $WORK_DIR/backup.sh ] && ! grep -q "$WORK_DIR/backup.sh" /etc/crontab && echo "$BACKUP_TIME root bash $WORK_DIR/backup.sh a" >> /etc/crontab
   [ -s $WORK_DIR/restore.sh ] && ! grep -q "$WORK_DIR/restore.sh" /etc/crontab && echo "* * * * * root bash $WORK_DIR/restore.sh a" >> /etc/crontab
   service cron restart
 
@@ -435,8 +436,8 @@ XIEYI='vl'
 XIEYI2='vm'
 CF_IP=${CF_IP:-'ip.sb'}
 SUB_NAME=${SUB_NAME:-'nezha'}
-up_url="${XIEYI}ess://${UUID}@${CF_IP}:443?path=%2F${XIEYI}s%3Fed%3D2048&security=tls&encryption=none&host=${ARGO_DOMAIN}&type=ws&sni=${ARGO_DOMAIN}#${country_code}-${SUB_NAME}"
-VM_SS="{ \"v\": \"2\", \"ps\": \"${country_code}-${SUB_NAME}\", \"add\": \"${CF_IP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/vms?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\", \"fp\": \"randomized\", \"allowlnsecure\": \"flase\"}"
+up_url="${XIEYI}ess://${UUID}@${CF_IP}:443?path=%2F${XIEYI}s%3Fed%3D2048&security=tls&encryption=none&host=${ARGO_DOMAIN}&type=ws&sni=${ARGO_DOMAIN}#${country_code}-${SUB_NAME}-${XIEYI}"
+VM_SS="{ \"v\": \"2\", \"ps\": \"${country_code}-${SUB_NAME}-${XIEYI2}\", \"add\": \"${CF_IP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/vms?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\", \"fp\": \"randomized\", \"allowlnsecure\": \"flase\"}"
 if command -v base64 >/dev/null 2>&1; then
   vm_url="${XIEYI2}ess://$(echo -n "$VM_SS" | base64 -w 0)"
 fi
