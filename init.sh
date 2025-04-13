@@ -212,31 +212,31 @@ EOF
   else
     LOCAL_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
     AGENT_UUID=$(openssl rand -hex 16 | sed 's/\(........\)\(....\)\(....\)\(....\)\(............\)/\1-\2-\3-\4-\5/')
-    cat > ${WORK_DIR}/data/config.yaml << EOF
-agent_secret_key: $LOCAL_TOKEN
-debug: false
-listen_port: $GRPC_PORT
-language: zh-CN
-site_name: "Nezha Probe"
-install_host: $ARGO_DOMAIN:$GRPC_PORT
-location: Asia/Shanghai
-tls: true
-https:
-   insecure_tls: true # 如果使用正规证书，请改为 false
-   listen_port: $GRPC_PROXY_PORT
-   tls_cert_path: $WORK_DIR/nezha.pem
-   tls_key_path: $WORK_DIR/nezha.key
-oauth2:
-  GitHub:
-    client_id: "$GH_CLIENTID"
-    client_secret: "$GH_CLIENTSECRET"
-    endpoint:
-      auth_url: "https://github.com/login/oauth/authorize"
-      token_url: "https://github.com/login/oauth/access_token"
-    user_info_url: "https://api.github.com/user"
-    user_id_path: "id"
-EOF
-    cat > ${WORK_DIR}/data/agent-config.yml << EOF
+#     cat > ${WORK_DIR}/data/config.yaml << EOF
+# agent_secret_key: $LOCAL_TOKEN
+# debug: false
+# listen_port: $GRPC_PORT
+# language: zh-CN
+# site_name: "Nezha Probe"
+# install_host: $ARGO_DOMAIN:$GRPC_PORT
+# location: Asia/Shanghai
+# tls: true
+# https:
+#    insecure_tls: true # 如果使用正规证书，请改为 false
+#    listen_port: $GRPC_PROXY_PORT
+#    tls_cert_path: $WORK_DIR/nezha.pem
+#    tls_key_path: $WORK_DIR/nezha.key
+# oauth2:
+#   GitHub:
+#     client_id: "$GH_CLIENTID"
+#     client_secret: "$GH_CLIENTSECRET"
+#     endpoint:
+#       auth_url: "https://github.com/login/oauth/authorize"
+#       token_url: "https://github.com/login/oauth/access_token"
+#     user_info_url: "https://api.github.com/user"
+#     user_id_path: "id"
+# EOF
+    cat > ${WORK_DIR}/data/config.yml << EOF
 client_secret: $LOCAL_TOKEN
 debug: false
 disable_auto_update: false
@@ -383,7 +383,7 @@ fi
 if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
    AG_RUN="$WORK_DIR/nezha-agent -s localhost:$GRPC_PORT -p $LOCAL_TOKEN --disable-auto-update --disable-force-update"
 else
-   AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/data/agent-config.yml"
+   AG_RUN="$WORK_DIR/nezha-agent"
 fi
   # 生成 supervisor 进程守护配置文件
   cat > /etc/supervisor/conf.d/damon.conf << EOF
