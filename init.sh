@@ -91,7 +91,7 @@ EOF
     CADDY_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/caddyserver/caddy/releases/latest" | awk -F [v\"] '/"tag_name"/{print $5}' || echo '2.7.6')
     wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_LATEST}/caddy_${CADDY_LATEST}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
     GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
-    if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+    # if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
       cat > $WORK_DIR/Caddyfile  << EOF
 {
     http_port $CADDY_HTTP_PORT
@@ -121,50 +121,50 @@ EOF
 }
 
 EOF
-    else
-      cat > $WORK_DIR/Caddyfile  << EOF
-{
-    http_port $CADDY_HTTP_PORT
-}
+#     else
+#       cat > $WORK_DIR/Caddyfile  << EOF
+# {
+#     http_port $CADDY_HTTP_PORT
+# }
 
-:$PRO_PORT {
-    reverse_proxy /vls* {
-        to localhost:8002
-    }
+# :$PRO_PORT {
+#     reverse_proxy /vls* {
+#         to localhost:8002
+#     }
 
-    reverse_proxy /vms* {
-        to localhost:8001
-    }
-    reverse_proxy {
-        to localhost:$WEB_PORT
-    }
-}
+#     reverse_proxy /vms* {
+#         to localhost:8001
+#     }
+#     reverse_proxy {
+#         to localhost:$WEB_PORT
+#     }
+# }
 
-:$GRPC_PROXY_PORT {
-    tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
-    reverse_proxy /proto.NezhaService/* {
-        header_up Host {host}
-        header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-        transport http {
-            versions h2c
-            read_buffer 4096
-        }
-        to localhost:$GRPC_PORT
-    }
-    reverse_proxy {
-        header_up Host {host}
-        header_up Origin https://{host}
-        header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
-        # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
-        transport http {
-            read_buffer 16384
-        }
-        to localhost:$GRPC_PORT
-    }
-}
-EOF
-    fi
+# :$GRPC_PROXY_PORT {
+#     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
+#     reverse_proxy /proto.NezhaService/* {
+#         header_up Host {host}
+#         header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+#         transport http {
+#             versions h2c
+#             read_buffer 4096
+#         }
+#         to localhost:$GRPC_PORT
+#     }
+#     reverse_proxy {
+#         header_up Host {host}
+#         header_up Origin https://{host}
+#         header_up nz-realip {http.CF-Connecting-IP} # 替换为你的 CDN 提供的私有 header，此处为 CloudFlare 默认
+#         # header_up nz-realip {remote_host} # 如果你使用caddy作为最外层，就把上面一行注释掉，启用此行
+#         transport http {
+#             read_buffer 16384
+#         }
+#         to localhost:$GRPC_PORT
+#     }
+# }
+# EOF
+#     fi
   fi
   
   # 下载需要的应用
@@ -212,30 +212,16 @@ EOF
   else
     LOCAL_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
     AGENT_UUID=$(openssl rand -hex 16 | sed 's/\(........\)\(....\)\(....\)\(....\)\(............\)/\1-\2-\3-\4-\5/')
-#     cat > ${WORK_DIR}/data/config.yaml << EOF
-# agent_secret_key: $LOCAL_TOKEN
-# debug: false
-# listen_port: $GRPC_PORT
-# language: zh-CN
-# site_name: "Nezha Probe"
-# install_host: $ARGO_DOMAIN:$GRPC_PORT
-# location: Asia/Shanghai
-# tls: true
-# https:
-#    insecure_tls: true # 如果使用正规证书，请改为 false
-#    listen_port: $GRPC_PROXY_PORT
-#    tls_cert_path: $WORK_DIR/nezha.pem
-#    tls_key_path: $WORK_DIR/nezha.key
-# oauth2:
-#   GitHub:
-#     client_id: "$GH_CLIENTID"
-#     client_secret: "$GH_CLIENTSECRET"
-#     endpoint:
-#       auth_url: "https://github.com/login/oauth/authorize"
-#       token_url: "https://github.com/login/oauth/access_token"
-#     user_info_url: "https://api.github.com/user"
-#     user_id_path: "id"
-# EOF
+    cat > ${WORK_DIR}/data/config.yaml << EOF
+agent_secret_key: $LOCAL_TOKEN
+debug: false
+listen_port: $GRPC_PORT
+language: zh-CN
+site_name: "Nezha Probe"
+install_host: $ARGO_DOMAIN:$GRPC_PROXY_PORT
+location: Asia/Shanghai
+tls: true
+EOF
     cat > ${WORK_DIR}/data/config.yml << EOF
 client_secret: $LOCAL_TOKEN
 debug: false
