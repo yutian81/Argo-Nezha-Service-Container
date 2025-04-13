@@ -136,7 +136,7 @@ EOF
         to localhost:8001
     }
     reverse_proxy {
-        to localhost:$WEB_PORT
+        to localhost:$GRPC_PORT
     }
 }
 
