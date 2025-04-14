@@ -26,7 +26,7 @@
 ## 注意
   | 注意事项        | 注意内容  |
   | ------------ | ------   |
-  | agent的安装命令 | 端口改为 `443` ，`tls` 改为为 `true` |
+  | agent的安装命令 | 端口需确认为 `443` ，`tls` 需确认为 `true` |
   | v1的OAuth 2.0 | callback地址与v0不同，为 https://你的面板域名/api/v1/oauth2/callback |
   | [使用备份](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#%E6%89%8B%E5%8A%A8%E5%A4%87%E4%BB%BD%E6%95%B0%E6%8D%AE) | 需要 `GH_BACKUP_USER`、`GH_REPO`、`GH_EMAIL`、`GH_PAT` 这4个变量有值 |
   | [使用本地ssh](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#ssh-%E6%8E%A5%E5%85%A5) | 需要 `GH_CLIENTID`、`GH_CLIENTSECRET` 这2个变量有值 |
