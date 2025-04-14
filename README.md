@@ -1,4 +1,39 @@
-# Argo-Nezha-Service-Container
+# Argo-Nezha-Service-Container 兼容 v0 和 v1
+
+本项目**兼容了nezha的v0和v1版本**，基于fscarmen大佬的 [Argo-Nezha-Service-Container](https://github.com/fscarmen2/Argo-Nezha-Service-Container) 修改并结合dsadsadsss大佬的 [Docker-for-Nezha-Argo-server-v0.x](https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v0.x) 所得。
+
+目前仅有docker镜像 `mikehand888/argo-nezha:latest` ， 支持 amd64 和 arm64 架构
+
+## 环境变量说明
+
+  | 变量名        | 是否必须  | 备注 |
+  | ------------ | ------   | ---- |
+  | GH_USER             | v0必填 | github 的用户名，用于面板管理授权 |
+  | GH_CLIENTID         | v0必填 | 在 github 上申请 |
+  | GH_CLIENTSECRET     | v0必填 | 在 github 上申请 |
+  | GH_BACKUP_USER      | 否 | 在 github 上备份哪吒服务端数据库的 github 用户名，不填则与面板管理授权的账户 GH_USER 一致  |
+  | GH_REPO             | 否 | 在 github 上备份哪吒服务端数据库文件的 github 库 |
+  | GH_EMAIL            | 否 | github 的邮箱，用于备份库的 git 推送 |
+  | GH_PAT              | 否 | github 的私钥（PAT），用于备份库的 git 推送 |
+  | REVERSE_PROXY_MODE  | 否 | 默认使用 Caddy 应用来反代，可以不填。v0可选 Nginx 或 gRPCwebProxy；v1必须用 Caddy ，不填 |
+  | ARGO_AUTH           | 均必填 | Json: 从 https://fscarmen.cloudflare.now.cc 获取的 Argo Json<br> Token: 从 Cloudflare 官网获取 |
+  | ARGO_DOMAIN         | 均必填 | Argo 域名 |
+  | NO_AUTO_RENEW       | 否 | 默认不需要该变量，即每天定时同步在线最新的备份和还原脚本。如不需要该功能，设置此变量为 `1` |
+  | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式，v0版本会自动升级到v0.20.13；`v1.00.00` 的格式，v1版本将会固定在所填版本。不填则则是最新的v1面板 |
+  | UUID                | 否 | 填写会有节点，在日志查看base64 |
+  | BACKUP_TIME         | 否 | 自定义备份时间，不填默认为0 4 * * *，即每天北京时间4点备份 |
+
+## 注意
+  | 注意事项        | 注意内容  |
+  | ------------ | ------   |
+  | agent的安装命令 | 端口改为 `443` ，`tls` 改为为 `true` |
+  | v1的OAuth 2.0 | callback地址与v0不同，为 https://你的面板域名/api/v1/oauth2/callback |
+  | [使用备份](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#%E6%89%8B%E5%8A%A8%E5%A4%87%E4%BB%BD%E6%95%B0%E6%8D%AE) | 需要 `GH_BACKUP_USER`、`GH_REPO`、`GH_EMAIL`、`GH_PAT` 这4个变量有值 |
+  | [使用本地ssh](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#ssh-%E6%8E%A5%E5%85%A5) | 需要 `GH_CLIENTID`、`GH_CLIENTSECRET` 这2个变量有值 |
+
+* * *
+
+# F佬原项目教程
 
 使用 Argo 隧道的哪吒服务端
 
