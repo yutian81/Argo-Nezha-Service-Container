@@ -1,8 +1,10 @@
 # Argo-Nezha-Service-Container 兼容 v0 和 v1
 
-本项目**兼容了nezha的v0和v1版本**，基于fscarmen大佬的 [Argo-Nezha-Service-Container](https://github.com/fscarmen2/Argo-Nezha-Service-Container) 修改并结合dsadsadsss大佬的 [Docker-for-Nezha-Argo-server-v0.x](https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v0.x) 所得。
+- 本项目**兼容了nezha的v0和v1版本**，基于fscarmen大佬的 [Argo-Nezha-Service-Container](https://github.com/fscarmen2/Argo-Nezha-Service-Container) 修改并结合dsadsadsss大佬的 [Docker-for-Nezha-Argo-server-v0.x](https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v0.x) 所得。
 
-目前仅有docker镜像 `mikehand888/argo-nezha:latest` ， 支持 amd64 和 arm64 架构
+- 目前仅有docker镜像 `mikehand888/argo-nezha:latest` ， 支持 amd64 和 arm64 架构。
+
+- 使用前，请先阅读 [F佬原项目教程](https://github.com/Kiritocyz/Argo-Nezha-Service-Container#f%E4%BD%AC%E5%8E%9F%E9%A1%B9%E7%9B%AE%E6%95%99%E7%A8%8B) ，了解具体如何部署，本项目仅在环境变量上有所不同。
 
 ## 环境变量说明
 
@@ -19,16 +21,18 @@
   | ARGO_AUTH           | 均必填 | Json: 从 https://fscarmen.cloudflare.now.cc 获取的 Argo Json<br> Token: 从 Cloudflare 官网获取 |
   | ARGO_DOMAIN         | 均必填 | Argo 域名 |
   | NO_AUTO_RENEW       | 否 | 默认不需要该变量，即每天定时同步在线最新的备份和还原脚本。如不需要该功能，设置此变量为 `1` |
-  | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式，v0版本会自动升级到v0.20.13；`v1.00.00` 的格式，v1版本将会固定在所填版本。不填则则是最新的v1面板 |
+  | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式和 `v1.00.00` 的格式，v1版本将会固定在所填版本。不填则是最新的v1面板 |
   | UUID                | 否 | 填写会有节点，在日志查看base64 |
   | BACKUP_TIME         | 否 | 自定义备份时间，不填默认为 `0 4 * * *`，即每天北京时间4点备份 |
 
-## 注意
-  | 注意事项        | 注意内容  |
+## 常见问题以及坑点
+  | 常见问题       | 注意内容  |
   | ------------ | ------   |
+  | [探针不上线](https://github.com/Kiritocyz/Argo-Nezha-Service-Container#%E5%87%86%E5%A4%87%E9%9C%80%E8%A6%81%E7%94%A8%E7%9A%84%E5%8F%98%E9%87%8F) | 请在 `cf` 面板查看 `argo`域名的 `grpc` 设置，一定要开启！还有可能是域名的问题，可以换个域名试试 |
   | agent的安装命令 | 端口需确认为 `443` ，`tls` 需确认为 `true` |
-  | v1的OAuth 2.0 | callback地址与v0不同，为 https://你的面板域名/api/v1/oauth2/callback |
-  | [使用备份](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#%E6%89%8B%E5%8A%A8%E5%A4%87%E4%BB%BD%E6%95%B0%E6%8D%AE) | 需要 `GH_BACKUP_USER`、`GH_REPO`、`GH_EMAIL`、`GH_PAT` 这4个变量有值 |
+  | OAuth 2.0 | v0为 `https://你的面板域名/oauth2/callback`，v1为 `https://你的面板域名/api/v1/oauth2/callback` |
+  | [使用备份](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#%E6%89%8B%E5%8A%A8%E5%A4%87%E4%BB%BD%E6%95%B0%E6%8D%AE) | 需要 `GH_USER`或`GH_BACKUP_USER`、`GH_REPO`、`GH_EMAIL`、`GH_PAT` 这4个变量有值 |
+  | 注意自动还原 | 容器在修改环境变量后会重新部署，注意备份库会自动还原备份 |
   | [使用本地ssh](https://github.com/Kiritocyz/Argo-Nezha-Service-Container?tab=readme-ov-file#ssh-%E6%8E%A5%E5%85%A5) | 需要 `GH_CLIENTID`、`GH_CLIENTSECRET` 这2个变量有值 |
 
 * * *
