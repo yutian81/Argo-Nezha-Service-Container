@@ -21,7 +21,7 @@
   | ARGO_AUTH           | 均必填 | Json: 从 https://fscarmen.cloudflare.now.cc 获取的 Argo Json<br> Token: 从 Cloudflare 官网获取 |
   | ARGO_DOMAIN         | 均必填 | Argo 域名 |
   | NO_AUTO_RENEW       | 否 | 默认不需要该变量，即每天定时同步在线最新的备份和还原脚本。如不需要该功能，设置此变量为 `1` |
-  | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式和 `v1.00.00` 的格式，v1版本将会固定在所填版本。不填则是最新的v1面板 |
+  | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式和 `v1.00.00` 的格式，填写了将会固定在所填版本。不填则是最新的v1面板 |
   | UUID                | 否 | 填写会有节点，在日志查看base64 |
   | BACKUP_TIME         | 否 | 自定义备份时间，不填默认为 `0 4 * * *`，即每天北京时间4点备份 |
 
