@@ -13,13 +13,13 @@
   | GH_USER             | v0必填 | github 的用户名，用于面板管理授权 |
   | GH_CLIENTID         | v0必填 | 在 github 上申请 |
   | GH_CLIENTSECRET     | v0必填 | 在 github 上申请 |
-  | GH_BACKUP_USER      | 否 | 在 github 上备份哪吒服务端数据库的 github 用户名，不填则与面板管理授权的账户 GH_USER 一致  |
-  | GH_REPO             | 否 | 在 github 上备份哪吒服务端数据库文件的 github 库 |
-  | GH_EMAIL            | 否 | github 的邮箱，用于备份库的 git 推送 |
-  | GH_PAT              | 否 | github 的私钥（PAT），用于备份库的 git 推送 |
+  | GH_BACKUP_USER      | 备份或填 | 在 github 上备份哪吒服务端数据库的 github 用户名，不填则与面板管理授权的账户 GH_USER 一致  |
+  | GH_REPO             | 备份必填 | 在 github 上备份哪吒服务端数据库文件的 github 库 |
+  | GH_EMAIL            | 备份必填 | github 的邮箱，用于备份库的 git 推送 |
+  | GH_PAT              | 备份必填 | github 的私钥（PAT），用于备份库的 git 推送 |
   | REVERSE_PROXY_MODE  | 否 | 默认使用 Caddy 应用来反代，可以不填。v0可选 Nginx 或 gRPCwebProxy；v1必须用 Caddy ，不填 |
-  | ARGO_AUTH           | 均必填 | Json: 从 https://fscarmen.cloudflare.now.cc 获取的 Argo Json<br> Token: 从 Cloudflare 官网获取 |
-  | ARGO_DOMAIN         | 均必填 | Argo 域名 |
+  | ARGO_AUTH           | v0、v1均必填 | Json: 从 https://fscarmen.cloudflare.now.cc 获取的 Argo Json<br> Token: 从 Cloudflare 官网获取 |
+  | ARGO_DOMAIN         | v0、v1均必填 | Argo 域名 |
   | NO_AUTO_RENEW       | 否 | 默认不需要该变量，即每天定时同步在线最新的备份和还原脚本。如不需要该功能，设置此变量为 `1` |
   | DASHBOARD_VERSION   | 否 | 指定面板的版本。`v0.00.00` 的格式和 `v1.00.00` 的格式，填写了将会固定在所填版本。不填则是最新的v1面板 |
   | UUID                | 否 | 填写会有节点，在日志查看base64 |
