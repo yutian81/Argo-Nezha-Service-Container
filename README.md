@@ -4,7 +4,7 @@
 
 - 目前仅有docker镜像 `mikehand888/argo-nezha:latest` ， 支持 amd64 和 arm64 架构。
 
-- 使用前，请先阅读 [F佬原项目教程](https://github.com/Kiritocyz/Argo-Nezha-Service-Container#f%E4%BD%AC%E5%8E%9F%E9%A1%B9%E7%9B%AE%E6%95%99%E7%A8%8B) ，了解具体如何部署，本项目仅在环境变量上有所不同。
+- 使用前，**请先阅读 [F佬原项目教程](https://github.com/Kiritocyz/Argo-Nezha-Service-Container#f%E4%BD%AC%E5%8E%9F%E9%A1%B9%E7%9B%AE%E6%95%99%E7%A8%8B)** ，了解具体如何部署，本项目仅在环境变量上有所不同。
 
 ## 环境变量说明
 
