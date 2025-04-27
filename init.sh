@@ -287,10 +287,18 @@ ingress:
     service: ssh://localhost:22
     path: /$GH_CLIENTID/*
   - hostname: $ARGO_DOMAIN
+EOF
+    if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+      cat >> $WORK_DIR/argo.yml << EOF
     service: http://localhost:$WEB_PORT
   - service: http_status:404
 EOF
-
+    else
+      cat >> $WORK_DIR/argo.yml << EOF
+    service: http://localhost:$PRO_PORT
+  - service: http_status:404
+EOF
+    fi
   # 如为 token 时
   elif [[ "$ARGO_AUTH" =~ ^ey[A-Z0-9a-z=]{120,250}$ ]]; then
     ARGO_RUN="cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_AUTH}"
