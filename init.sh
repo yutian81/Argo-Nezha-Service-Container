@@ -163,12 +163,26 @@ EOF
   # 下载需要的应用
   if [ -z "$DASHBOARD_VERSION" ]; then
     wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/nezhahq/nezha/releases/latest/download/dashboard-linux-$ARCH.zip
-    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_$ARCH.zip
+    if [ -z "$AGENT_VERSION" ]; then
+      wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_$ARCH.zip
+    elif [[ "$AGENT_VERSION" =~ 1\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+      AGENT_LATEST=$(sed 's/v//; s/^/v&/' <<< "$AGENT_VERSION")
+      wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/$AGENT_LATEST/nezha-agent_linux_$ARCH.zip
+    else
+      error "The AGENT_VERSION variable is not in the correct format, please check."
+    fi
   elif [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
     [-z "$GH_USER" || -z "$GH_CLIENTID" || -z "$GH_CLIENTSECRET"] && error " There are github variables that are not set. "
     DASHBOARD_LATEST=$(sed 's/v//; s/^/v&/' <<< "$DASHBOARD_VERSION")
     wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/naiba/nezha/releases/download/$DASHBOARD_LATEST/dashboard-linux-$ARCH.zip
-    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/v0.20.5/nezha-agent_linux_$ARCH.zip
+    if [ -z "$AGENT_VERSION" ]; then
+      wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/v0.20.5/nezha-agent_linux_$ARCH.zip
+    elif [[ "$AGENT_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+      AGENT_LATEST=$(sed 's/v//; s/^/v&/' <<< "$AGENT_VERSION")
+      wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/$AGENT_LATEST/nezha-agent_linux_$ARCH.zip
+    else
+      error "The AGENT_VERSION variable is not in the correct format, please check."
+    fi
   else
     error "The DASHBOARD_VERSION variable is not in the correct format, please check."
   fi
@@ -231,9 +245,7 @@ EOF
     cat > ${WORK_DIR}/data/config.yml << EOF
 client_secret: $LOCAL_TOKEN
 debug: false
-disable_auto_update: false
 disable_command_execute: false
-disable_force_update: false
 disable_nat: false
 disable_send_query: false
 gpu: false
@@ -249,6 +261,17 @@ use_gitee_to_upgrade: false
 use_ipv6_country_code: false
 uuid: $AGENT_UUID
 EOF
+    if [ -z "$AGENT_VERSION" ]; then
+      cat >> ${WORK_DIR}/data/config.yml << EOF
+disable_auto_update: false
+disable_force_update: false
+EOF
+    else
+      cat >> ${WORK_DIR}/data/config.yml << EOF
+disable_auto_update: true
+disable_force_update: true
+EOF
+    fi
   fi
 
   if [[ "$DASHBOARD_VERSION" =~ 0\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
