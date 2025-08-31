@@ -20,3 +20,7 @@ services:
       - GH_CLIENTSECRET=github认证秘钥
       - ARGO_AUTH=cf argo token
       - ARGO_DOMAIN=cf argo域名
+    volumes:
+      - ./data:/dashboard/data
+    ports:
+      - 8080:8080
