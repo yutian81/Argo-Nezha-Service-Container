@@ -1,0 +1,104 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<script>
+    window.CustomBackgroundImage = "https://pan.811520.xyz/icon/bg_dark.webp";
+    window.ShowNetTransfer = true;
+    window.CustomLinks = "[{\"link\":\"/dashboard/profile\",\"name\":\"用户设置\"},{\"link\":\"/dashboard/settings\",\"name\":\"系统设置\"}]";
+</script>
+
+<script>
+// 定义您想要添加的完整HTML代码
+const customFooterHtml = `
+  <span id="my-custom-footer" style="display: contents;">
+    <span class="mx-1">|</span>
+    <a href="https://github.com/yutian81" target="_blank" class="flex items-center gap-1">
+      <i class="fab fa-github"></i> GitHub
+    </a>
+    <span class="mx-1">|</span>
+    <a href="https://blog.811520.xyz/" target="_blank" class="flex items-center gap-1">
+      <i class="fas fa-blog"></i> QingYun Blog
+    </a>
+  </span>
+`;
+
+// 定义一个函数来执行注入操作
+function addCustomFooter() {
+  const targetDiv = document.querySelector('.server-footer-name > div:first-child');
+  if (targetDiv && !document.getElementById('my-custom-footer')) {
+    targetDiv.insertAdjacentHTML('beforeend', customFooterHtml);
+    return true;
+  }
+  return false;
+}
+
+// 设置轮询器，最多尝试5次
+let attempts = 0;
+const maxAttempts = 5;
+
+const intervalId = setInterval(() => {
+  attempts++;
+  if (addCustomFooter() || attempts >= maxAttempts) {
+    clearInterval(intervalId);
+  }
+}, 200);
+</script>
+
+<style>
+/* 给顶部增加按钮并配上图标 */
+a[href="/dashboard/settings"]::before {
+    content: "\f085"; /* Font Awesome 'cogs' icon */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: relative;
+    top: 1px;
+}
+a[href="/dashboard/profile"]::before {
+    content: "\f4fe"; /* Font Awesome 'user-cog' icon */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: relative;
+    top: 1px;
+}
+a[href="/dashboard"]::before {
+    content: "\f013";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: relative;
+    top: 1px; 
+}
+a[href="/dashboard/profile"]::after {
+  content: "|";
+  margin-left: 0.3em;
+  margin-right: 0.2em;
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+a[href="/dashboard/settings"]::after {
+  content: "|";
+  margin-left: 0.3em;
+  margin-right: 0.2em;
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 给顶部和页脚链接添加 hover 效果 */
+#my-custom-footer a,
+.server-footer-name > div:first-child > a[href*="naiba/nezha"],
+a[href="/dashboard"],
+a[href="/dashboard/settings"],
+a[href="/dashboard/profile"] {
+  transition: color 0.2s ease-in-out;
+}
+#my-custom-footer a:hover,
+.server-footer-name > div:first-child > a[href*="naiba/nezha"]:hover,
+a[href="/dashboard"]:hover,
+a[href="/dashboard/settings"]:hover,
+a[href="/dashboard/profile"]:hover {
+  color: #F59E0B !important; 
+}
+
+@media (max-width: 480px) {
+  .server-footer-name {
+    white-space: nowrap;
+    font-size: 0.8em;
+  }
+}
+</style>
