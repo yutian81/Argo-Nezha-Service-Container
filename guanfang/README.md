@@ -45,4 +45,4 @@ docker restart nezha-dashboard
 
 - 约第4行：`window.CustomBackgroundImage = "https://pan.811520.xyz/icon/bg_dark.webp";` 改为你自己的背景图直链
 - 约第14行：`href="https://github.com/yutian81"`，改为你自己的仓库链接
-- 约第18行：`href="https://blog.811520.xyz/"，改为你自己的博客链接
+- 约第18行：`href="https://blog.811520.xyz/"`，改为你自己的博客链接
