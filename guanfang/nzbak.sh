@@ -165,7 +165,7 @@ do_backup() {
     
     # 压缩需要备份的文件
     hint "正在压缩备份文件..."
-    TIME=$(date "+%Y-%m-%d-%H%M%S")
+    TIME=$(TZ="Asia/Shanghai" date "+%Y-%m-%d-%H%M%S")
     BACKUP_FILE="dashboard-$TIME.tar.gz"
     
     # 查找自定义主题目录 (名字中包含 custom) 并与 data 目录一起打包
