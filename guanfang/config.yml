@@ -1,8 +1,8 @@
 # 面板额外设置
-
+site_name: NeZha-V1
 language: zh_CN
 listen_port: 8008
-site_name: NeZha-V1
+tls: false
 oauth2:
   GitHub:
     client_id: 
