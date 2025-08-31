@@ -1,0 +1,14 @@
+# 面板额外设置
+
+language: zh_CN
+listen_port: 8008
+site_name: NeZha-V1
+oauth2:
+  GitHub:
+    client_id: 
+    client_secret: 
+    endpoint:
+      auth_url: https://github.com/login/oauth/authorize
+      token_url: https://github.com/login/oauth/access_token
+    user_id_path: id
+    user_info_url: https://api.github.com/user
