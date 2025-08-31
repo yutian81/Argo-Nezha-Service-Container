@@ -69,33 +69,27 @@ check_and_install_dependencies() {
         fi
     done
 
-    # 如果有缺失的包，则尝试安装
+    # 如果有缺失的包，则自动安装
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-        hint "检测到缺失的依赖: ${MISSING_PKGS[*]}"
-        read -p "是否尝试自动安装? (y/N): " choice
-        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-            info "正在尝试安装依赖..."
-            case "$PM" in
-                apt)
-                    apt-get update && apt-get install -y "${MISSING_PKGS[@]}"
-                    ;;
-                yum|dnf)
-                    "$PM" install -y "${MISSING_PKGS[@]}"
-                    ;;
-                apk)
-                    apk update && apk add --no-cache "${MISSING_PKGS[@]}"
-                    ;;
-            esac
-            # 再次检查是否安装成功
-            for i in "${!DEPS_COMMAND[@]}"; do
-                 if ! command -v "${DEPS_COMMAND[i]}" &>/dev/null; then
-                    error "依赖 ${DEPS_COMMAND[i]} 自动安装失败，请手动安装后重试。"
-                 fi
-            done
-            info "所有依赖已成功安装。"
-        else
-            error "用户取消安装。请手动安装依赖后重试。"
-        fi
+        info "检测到缺失的依赖: ${MISSING_PKGS[*]}，正在自动安装..."
+        case "$PM" in
+            apt)
+                apt-get update && apt-get install -y "${MISSING_PKGS[@]}"
+                ;;
+            yum|dnf)
+                "$PM" install -y "${MISSING_PKGS[@]}"
+                ;;
+            apk)
+                apk update && apk add --no-cache "${MISSING_PKGS[@]}"
+                ;;
+        esac
+        # 再次检查是否安装成功
+        for i in "${!DEPS_COMMAND[@]}"; do
+             if ! command -v "${DEPS_COMMAND[i]}" &>/dev/null; then
+                error "依赖 ${DEPS_COMMAND[i]} 自动安装失败，请手动安装后重试。"
+             fi
+        done
+        info "所有依赖已成功安装。"
     else
         info "所有依赖均已满足。"
     fi
@@ -103,46 +97,52 @@ check_and_install_dependencies() {
 
 # 检查运行环境 (Docker 或 systemd)
 IS_DOCKER=0
+# 在 Docker 容器内执行此脚本时，会检测到 Docker 环境
 if [ -f "/.dockerenv" ] || grep -q "docker" /proc/1/cgroup; then
     IS_DOCKER=1
 fi
 
-# 服务控制函数
+# 服务控制函数，优先处理 Docker 容器
 control_service() {
     local action="$1" # "stop" 或 "start"
-    cd "$WORK_DIR" || error "无法进入工作目录: $WORK_DIR"
     
     hint "正在 $action Nezha 面板服务..."
+    # 脚本在宿主机运行时，通过 WORK_DIR 判断是否为 Docker 部署
+    if [ -f "${WORK_DIR}/docker-compose.yaml" ] || docker ps -a --format '{{.Names}}' | grep -q "^nezha-dashboard$"; then
+        IS_DOCKER=1
+    fi
+
     if [ "$IS_DOCKER" = 1 ]; then
-        # 假设 Docker 环境中使用 supervisor
-        if command -v supervisorctl &> /dev/null; then
-            supervisorctl "$action" nezha >/dev/null 2>&1
-        else
-            error "未找到 supervisorctl 命令。请根据您的 Docker 环境调整服务控制逻辑。"
+        # 在 Docker 环境中，直接尝试用 docker 命令操作名为 nezha-dashboard 的容器
+        docker "$action" nezha-dashboard >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+             hint "无法执行 'docker $action nezha-dashboard' (可能容器已处于目标状态或不存在)。"
         fi
     else
-        # 假设宿主机环境中使用 systemd
-        if command -v systemctl &> /dev/null; then
-            if [ "$action" = "stop" ]; then
+        # 宿主机环境中使用 systemd
+        if command -v systemctl &>/dev/null; then
+            if systemctl is-active --quiet nezha-dashboard && [ "$action" = "stop" ]; then
                 systemctl stop nezha-dashboard
-            else
+            elif ! systemctl is-active --quiet nezha-dashboard && [ "$action" = "start" ]; then
                 systemctl start nezha-dashboard
             fi
         else
             error "未找到 systemctl 命令。请根据您的系统调整服务控制逻辑。"
         fi
     fi
-    sleep 5 # 等待服务完全停止或启动
+    sleep 3 # 等待服务完全停止或启动
 }
 
 # 备份函数
 do_backup() {
     info "============== 开始执行备份任务 =============="
     
-    # 1. 停止面板服务
+    # 停止面板服务
     control_service "stop"
     
-    # 2. 优化数据库
+    cd "$WORK_DIR" || error "无法进入工作目录: $WORK_DIR"
+
+    # 优化数据库
     hint "正在优化数据库..."
     if sqlite3 "data/sqlite.db" ".output /tmp/tmp.sql" ".dump" ".quit" && \
        sqlite3 "/tmp/new.sqlite.db" ".read /tmp/tmp.sql" ".quit"; then
@@ -150,11 +150,12 @@ do_backup() {
         sqlite3 "data/sqlite.db" 'VACUUM;'
         info "数据库优化完成。"
     else
+        control_service "start" # 如果失败，重启服务
         error "数据库优化失败。"
     fi
     rm -f /tmp/tmp.sql
 
-    # 3. 克隆备份仓库
+    # 克隆备份仓库
     hint "正在克隆备份仓库..."
     [ -d /tmp/$GH_REPO ] && rm -rf /tmp/$GH_REPO
     if ! git clone "https://$GH_PAT@github.com/$GH_BACKUP_USER/$GH_REPO.git" --depth 1 /tmp/$GH_REPO; then
@@ -162,7 +163,7 @@ do_backup() {
         error "克隆仓库失败。请检查您的 GitHub 用户名、仓库名和 PAT 是否正确。"
     fi
     
-    # 4. 压缩需要备份的文件
+    # 压缩需要备份的文件
     hint "正在压缩备份文件..."
     TIME=$(date "+%Y-%m-%d-%H%M%S")
     BACKUP_FILE="dashboard-$TIME.tar.gz"
@@ -181,7 +182,7 @@ do_backup() {
     fi
     info "文件已压缩为: $BACKUP_FILE"
     
-    # 5. 上传到 GitHub
+    # 上传到 GitHub
     hint "正在上传备份文件至 GitHub..."
     cd /tmp/$GH_REPO || error "进入临时仓库目录失败。"
     
@@ -204,7 +205,7 @@ do_backup() {
         error "上传失败。请检查网络连接或 GitHub PAT 权限。"
     fi
 
-    # 6. 清理并重启服务
+    # 清理并重启服务
     cd "$WORK_DIR"
     rm -rf /tmp/$GH_REPO
     control_service "start"
@@ -218,7 +219,7 @@ do_restore() {
     read -p "确定要继续吗? (y/N): " choice
     [[ "$choice" != "y" && "$choice" != "Y" ]] && error "操作已取消。"
     
-    # 1. 下载最新的备份文件
+    # 下载最新的备份文件
     hint "正在获取最新备份文件..."
     LATEST_BACKUP_URL=$(curl -s -H "Authorization: token $GH_PAT" \
       "https://api.github.com/repos/$GH_BACKUP_USER/$GH_REPO/contents/" | \
@@ -233,10 +234,11 @@ do_restore() {
     fi
     info "已成功下载最新备份文件。"
     
-    # 2. 停止面板服务
+    # 停止面板服务
     control_service "stop"
-    
-    # 3. 清理旧文件并解压
+    cd "$WORK_DIR" || error "无法进入工作目录: $WORK_DIR"
+
+    # 清理旧文件并解压
     hint "正在清理旧数据并应用备份..."
     rm -rf "${WORK_DIR}/data"
     rm -rf $(find "${WORK_DIR}/resource" -type d -name '*custom*')
@@ -247,7 +249,7 @@ do_restore() {
         error "解压备份文件失败。面板数据可能已损坏！"
     fi
     
-    # 4. 清理并重启服务
+    # 清理并重启服务
     rm -f "/tmp/dashboard_latest.tar.gz"
     control_service "start"
     info "============== 还原任务执行完毕 =============="
