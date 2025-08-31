@@ -7,7 +7,7 @@
 </script>
 
 <script>
-// 定义您想要添加的完整HTML代码
+// 给页脚添加额外的链接按钮
 const customFooterHtml = `
   <span id="my-custom-footer" style="display: contents;">
     <span class="mx-1">|</span>
@@ -44,16 +44,16 @@ const intervalId = setInterval(() => {
 </script>
 
 <style>
-/* 给顶部增加按钮并配上图标 */
+/* 给顶部按钮配上图标 */
 a[href="/dashboard/settings"]::before {
-    content: "\f085"; /* Font Awesome 'cogs' icon */
+    content: "\f085";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     position: relative;
     top: 1px;
 }
 a[href="/dashboard/profile"]::before {
-    content: "\f4fe"; /* Font Awesome 'user-cog' icon */
+    content: "\f4fe";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     position: relative;
