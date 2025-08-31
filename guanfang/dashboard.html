@@ -69,13 +69,11 @@ a[href="/dashboard"]::before {
 a[href="/dashboard/profile"]::after {
   content: "|";
   margin-left: 0.3em;
-  /*margin-right: 0.1em;*/
   color: rgba(255, 255, 255, 0.4) !important;
 }
 a[href="/dashboard/settings"]::after {
   content: "|";
   margin-left: 0.3em;
-  /*margin-right: 0.1em;*/
   color: rgba(255, 255, 255, 0.4) !important;
 }
 
@@ -93,6 +91,51 @@ a[href="/dashboard"]:hover,
 a[href="/dashboard/settings"]:hover,
 a[href="/dashboard/profile"]:hover {
   color: #F59E0B !important; 
+}
+
+/* 给概览卡片标题文字添加图标 */
+/* 1. 服务器总数 */
+.server-overview > div:nth-child(1) p.font-medium::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  content: "\f233"; /* fa-server */
+  color: #3b82f6;
+  margin-right: 0.5em;
+  position: relative;
+  top: 1px;
+}
+
+/* 2. 在线服务器 */
+.server-overview > div:nth-child(2) p.font-medium::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  content: "\f058"; /* fa-circle-check */
+  color: #22c55e;
+  margin-right: 0.5em;
+  position: relative;
+  top: 1px;
+}
+
+/* 3. 离线服务器 */
+.server-overview > div:nth-child(3) p.font-medium::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  content: "\f057"; /* fa-circle-xmark */
+  color: #ef4444;
+  margin-right: 0.5em;
+  position: relative;
+  top: 1px;
+}
+
+/* 4. 网络 */
+.server-overview > div:nth-child(4) > div > section > div > p.font-medium::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  content: "\f0ac"; /* fa-globe */
+  color: #B079E6;
+  margin-right: 0.5em;
+  position: relative;
+  top: 1px;
 }
 
 @media (max-width: 480px) {
