@@ -41,57 +41,69 @@ hint() { echo -e "\033[33m\033[01m$*\033[0m"; }    # 黄色
 
 check_and_install_dependencies() {
     info "============== 正在检查脚本依赖 =============="
-    # 定义所需命令和对应的包名
-    DEPS_COMMAND=("git" "sqlite3" "tar" "curl" "wget")
-    
-    # 检测包管理器
+    declare -A CMD_PKG_MAP
+    CMD_PKG_MAP=(
+        [git]="git"
+        [sqlite3]="sqlite3"
+        [tar]="tar"
+        [curl]="curl"
+        [wget]="wget"
+        [jq]="jq"
+    )
+
     if command -v apt-get &>/dev/null; then
         PM="apt"
-        DEPS_PACKAGE=("git" "sqlite3" "tar" "curl" "wget")
     elif command -v yum &>/dev/null; then
         PM="yum"
-        DEPS_PACKAGE=("git" "sqlite" "tar" "curl" "wget")
+        CMD_PKG_MAP[sqlite3]="sqlite"
     elif command -v dnf &>/dev/null; then
         PM="dnf"
-        DEPS_PACKAGE=("git" "sqlite" "tar" "curl" "wget")
+        CMD_PKG_MAP[sqlite3]="sqlite"
     elif command -v apk &>/dev/null; then
         PM="apk"
-        DEPS_PACKAGE=("git" "sqlite" "tar" "curl" "wget")
+        CMD_PKG_MAP[sqlite3]="sqlite"
     else
-        error "未能识别的包管理器。请手动安装以下依赖: ${DEPS_COMMAND[*]}"
+        error "未能识别的包管理器。请手动安装以下依赖: ${!CMD_PKG_MAP[@]}"
     fi
 
-    # 查找缺失的命令
+    # 查找缺失的命令，并自动安装
     MISSING_PKGS=()
-    for i in "${!DEPS_COMMAND[@]}"; do
-        if ! command -v "${DEPS_COMMAND[i]}" &>/dev/null; then
-            MISSING_PKGS+=("${DEPS_PACKAGE[i]}")
+    for cmd in "${!CMD_PKG_MAP[@]}"; do
+        if ! command -v "$cmd" &>/dev/null; then
+            MISSING_PKGS+=("${CMD_PKG_MAP[$cmd]}")
         fi
     done
 
-    # 如果有缺失的包，则自动安装
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
         info "检测到缺失的依赖: ${MISSING_PKGS[*]}，正在自动安装..."
+        
+        # 定义一个变量来记录安装是否失败
+        install_failed=0
         case "$PM" in
             apt)
-                apt-get update && apt-get install -y "${MISSING_PKGS[@]}"
+                if ! (apt-get update && apt-get install -y "${MISSING_PKGS[@]}"); then
+                    install_failed=1
+                fi
                 ;;
             yum|dnf)
-                "$PM" install -y "${MISSING_PKGS[@]}"
+                if ! "$PM" install -y "${MISSING_PKGS[@]}"; then
+                    install_failed=1
+                fi
                 ;;
             apk)
-                apk update && apk add --no-cache "${MISSING_PKGS[@]}"
+                if ! (apk update && apk add --no-cache "${MISSING_PKGS[@]}"); then
+                    install_failed=1
+                fi
                 ;;
         esac
-        # 再次检查是否安装成功
-        for i in "${!DEPS_COMMAND[@]}"; do
-             if ! command -v "${DEPS_COMMAND[i]}" &>/dev/null; then
-                error "依赖 ${DEPS_COMMAND[i]} 自动安装失败，请手动安装后重试。"
-             fi
-        done
-        info "所有依赖已成功安装。"
+
+        if [ "$install_failed" -eq 1 ]; then
+            error "部分或全部依赖自动安装失败，请手动安装后重试。"
+        fi
+
+        info "所有缺失的依赖已成功安装。"
     else
-        info "所有依赖均已满足。"
+        info "所有依赖均已安装。"
     fi
 }
 
@@ -223,7 +235,7 @@ do_restore() {
     hint "正在获取最新备份文件..."
     LATEST_BACKUP_URL=$(curl -s -H "Authorization: token $GH_PAT" \
       "https://api.github.com/repos/$GH_BACKUP_USER/$GH_REPO/contents/" | \
-      grep "download_url" | awk -F '"' '{print $4}' | grep '\.tar\.gz$' | sort -r | head -n 1)
+      jq -r '.[] | select(.name | endswith(".tar.gz")) | .download_url' | sort -r | head -n 1)
       
     if [ -z "$LATEST_BACKUP_URL" ]; then
         error "无法从 GitHub 仓库获取最新备份文件。请检查仓库配置或 PAT 权限。"
